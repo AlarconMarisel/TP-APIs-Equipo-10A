@@ -129,5 +129,41 @@ namespace Negocio
 
             return url.StartsWith("http://") || url.StartsWith("https://");
         }
+
+        public void agregarImagenesPorProducto(int idProducto, List<string> imagenUrls)
+        {
+            AccesoDatos datos = new AccesoDatos();
+
+            try
+            {
+                // Validar que el producto existe
+                ArticuloNegocio articuloNegocio = new ArticuloNegocio();
+                Articulo producto = articuloNegocio.obtenerArticuloPorId(idProducto);
+                
+                if (producto == null)
+                {
+                    throw new Exception($"No se encontró el producto con ID: {idProducto}");
+                }
+
+                // Validar y agregar cada imagen
+                foreach (string url in imagenUrls)
+                {
+                    if (!validarUrlImagen(url))
+                    {
+                        throw new Exception($"URL de imagen inválida: {url}");
+                    }
+
+                    Imagen nuevaImagen = new Imagen();
+                    nuevaImagen.IdArticulo = idProducto;
+                    nuevaImagen.ImagenUrl = url;
+
+                    agregarImagen(nuevaImagen);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
     }
 }
