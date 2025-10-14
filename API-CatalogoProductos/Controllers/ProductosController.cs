@@ -13,9 +13,12 @@ namespace API_CatalogoProductos.Controllers
     public class ProductosController : ApiController
     {
         // GET: api/Productos
-        public IEnumerable<string> Get()
+        public IEnumerable<Articulo> Get()
         {
-            return new string[] { "value1", "value2" };
+            ArticuloNegocio datos = new ArticuloNegocio();
+
+
+            return datos.listarArticulo();
         }
 
         // GET: api/Productos/5
@@ -29,8 +32,38 @@ namespace API_CatalogoProductos.Controllers
         }
 
         // POST: api/Productos
-        public void Post([FromBody]string value)
+        [HttpPost]
+        public IHttpActionResult Post([FromBody] ProductoDto producto)
         {
+            try
+            {
+                if (producto == null)
+                    return BadRequest("No se enviaron datos del producto.");
+
+                Articulo nuevo = new Articulo
+                {
+                    CodigoArticulo = producto.CodigoArticulo,
+                    NombreArticulo = producto.NombreArticulo,
+                    DescripcionArticulo = producto.DescripcionArticulo,
+                    MarcaArticulo = new Marca { Id = producto.IdMarca },
+                    CategoriaArticulo = new Categoria { Id = producto.IdCategoria },
+                    Precio = producto.Precio
+                };
+
+                
+                ArticuloNegocio negocio = new ArticuloNegocio();
+                int idNuevo = negocio.agregarArticulo(nuevo);
+
+                if (idNuevo > 0)
+                    return Ok($"Producto agregado correctamente con ID {idNuevo}");
+                else
+                    return BadRequest("No se pudo insertar el producto.");
+
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
         }
 
         // PUT: api/Productos/5
