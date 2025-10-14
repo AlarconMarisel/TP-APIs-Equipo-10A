@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http;
 using System.Web.Http;
 using Negocio;
+using Dominio;
 using API_CatalogoProductos.Models;
 
 namespace API_CatalogoProductos.Controllers
@@ -18,9 +19,13 @@ namespace API_CatalogoProductos.Controllers
         }
 
         // GET: api/Productos/5
-        public string Get(int id)
+        public Articulo Get(int id)
         {
-            return "value";
+
+            ArticuloNegocio negocio = new ArticuloNegocio();
+
+            return negocio.obtenerArticuloPorId(id);
+
         }
 
         // POST: api/Productos
@@ -29,8 +34,46 @@ namespace API_CatalogoProductos.Controllers
         }
 
         // PUT: api/Productos/5
-        public void Put(int id, [FromBody]string value)
-        {
+        public HttpResponseMessage Put(int id, [FromBody]ProductoDto producto)
+        {          
+            var negocio = new ArticuloNegocio();
+            var marcaNeg = new MarcaNegocio();
+            var categoriaNeg = new CategoriaNegocio();
+
+            // Validaciones
+            Marca marca = marcaNeg.listarMarca().Find(m => m.Id == producto.IdMarca);
+            Categoria categoria = categoriaNeg.listarCategoria().Find(c => c.Id == producto.IdCategoria);
+
+            if (marca == null)
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, "La Marca especificada no existe.");
+            }
+            if (categoria == null)
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, "La Categoria especificada no existe.");
+            }
+
+            // Producto a Modificar
+            var produc = new Articulo();
+            if (producto != null)
+            { 
+                produc.CodigoArticulo = producto.CodigoArticulo;
+                produc.NombreArticulo = producto.NombreArticulo;
+                produc.DescripcionArticulo = producto.DescripcionArticulo;
+                produc.MarcaArticulo = new Marca { Id =producto.IdMarca };
+                produc.CategoriaArticulo = new Categoria { Id=producto.IdCategoria }; 
+                produc.Precio = producto.Precio;
+                produc.IdArticulo = id;
+            }
+            else
+            {
+                return Request.CreateResponse(HttpStatusCode.BadRequest, "Error en los datos del producto a Modificar.");
+            };
+                      
+            negocio.modificarArticulo(produc);
+            
+            return Request.CreateResponse(HttpStatusCode.OK, "Producto Modificado Correctamente.");
+
         }
 
         // DELETE: api/Productos/5
