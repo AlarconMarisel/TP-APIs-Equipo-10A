@@ -13,7 +13,6 @@ namespace API_CatalogoProductos.Models
         public int IdMarca { get; set; }
         public int IdCategoria { get; set; }
         public decimal Precio { get; set; }
-        public List<string> Imagenes { get; set; }
     }
 
 }

@@ -26,8 +26,14 @@ namespace API_CatalogoProductos.Controllers
         {
 
             ArticuloNegocio negocio = new ArticuloNegocio();
+            var producto = negocio.obtenerArticuloPorId(id);
 
-            return negocio.obtenerArticuloPorId(id);
+            if (producto == null)
+            { 
+                throw new HttpResponseException(Request.CreateErrorResponse(HttpStatusCode.NotFound, "No se encontró el Producto solicitado."));
+            }
+
+            return producto;
 
         }
 
@@ -74,6 +80,11 @@ namespace API_CatalogoProductos.Controllers
             var categoriaNeg = new CategoriaNegocio();
 
             // Validaciones
+            if( negocio.obtenerArticuloPorId(id) == null)
+            {
+               return Request.CreateResponse(HttpStatusCode.NotFound, "No se encontró el Producto a Modificar.");
+            }
+            
             Marca marca = marcaNeg.listarMarca().Find(m => m.Id == producto.IdMarca);
             Categoria categoria = categoriaNeg.listarCategoria().Find(c => c.Id == producto.IdCategoria);
 
@@ -88,6 +99,7 @@ namespace API_CatalogoProductos.Controllers
 
             // Producto a Modificar
             var produc = new Articulo();
+
             if (producto != null)
             { 
                 produc.CodigoArticulo = producto.CodigoArticulo;
@@ -102,11 +114,18 @@ namespace API_CatalogoProductos.Controllers
             {
                 return Request.CreateResponse(HttpStatusCode.BadRequest, "Error en los datos del producto a Modificar.");
             };
-                      
-            negocio.modificarArticulo(produc);
-            
-            return Request.CreateResponse(HttpStatusCode.OK, "Producto Modificado Correctamente.");
 
+            try
+            {
+                negocio.modificarArticulo(produc);
+            
+                return Request.CreateResponse(HttpStatusCode.OK, "Producto Modificado Correctamente.");
+
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, "Error al Modificar el Producto. " + ex.Message);
+            }
         }
 
         // DELETE: api/Productos/5

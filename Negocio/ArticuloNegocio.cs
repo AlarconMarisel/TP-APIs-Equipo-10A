@@ -66,6 +66,8 @@ namespace Negocio
                 datos.SetearParametro("@Descripcion", articuloNuevo.DescripcionArticulo);
                 datos.SetearParametro("@IdMarca", articuloNuevo.MarcaArticulo.Id);
                 datos.SetearParametro("@IdCategoria", articuloNuevo.CategoriaArticulo.Id);
+                if(articuloNuevo.Precio < 0)
+                    articuloNuevo.Precio = 0;
                 datos.SetearParametro("@Precio", articuloNuevo.Precio);
 
                 datos.EjecutarLectura();
@@ -99,6 +101,8 @@ namespace Negocio
                 datos.SetearParametro("@Descripcion", articuloModificado.DescripcionArticulo);
                 datos.SetearParametro("@IdMarca", articuloModificado.MarcaArticulo.Id);
                 datos.SetearParametro("@IdCategoria", articuloModificado.CategoriaArticulo.Id);
+                if(articuloModificado.Precio <= 0)
+                    articuloModificado.Precio = 0;
                 datos.SetearParametro("@Precio", articuloModificado.Precio);
                 datos.SetearParametro("@Id", articuloModificado.IdArticulo);
 
