@@ -39,38 +39,55 @@ namespace API_CatalogoProductos.Controllers
 
         // POST: api/Productos
         [HttpPost]
-        public IHttpActionResult Post([FromBody] ProductoDto producto)
+        public HttpResponseMessage Post([FromBody] ProductoDto producto)
         {
             try
             {
                 if (producto == null)
-                    return BadRequest("No se enviaron datos del producto.");
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "No se enviaron datos del producto.");
+
+                if (string.IsNullOrWhiteSpace(producto.CodigoArticulo) || string.IsNullOrWhiteSpace(producto.NombreArticulo) ||
+                    producto.IdMarca <= 0 || producto.IdCategoria <= 0)
+                {
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "Faltan datos obligatorios del producto.");
+                }
+
+                MarcaNegocio marcaNeg = new MarcaNegocio();
+                CategoriaNegocio categoriaNeg = new CategoriaNegocio();
+
+                Marca marca = marcaNeg.listarMarca().Find(m => m.Id == producto.IdMarca);
+                Categoria categoria = categoriaNeg.listarCategoria().Find(c => c.Id == producto.IdCategoria);
+
+                if (marca == null)
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "La marca especificada no existe.");
+
+                if (categoria == null)
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "La categoría especificada no existe.");
 
                 Articulo nuevo = new Articulo
                 {
                     CodigoArticulo = producto.CodigoArticulo,
                     NombreArticulo = producto.NombreArticulo,
                     DescripcionArticulo = producto.DescripcionArticulo,
-                    MarcaArticulo = new Marca { Id = producto.IdMarca },
-                    CategoriaArticulo = new Categoria { Id = producto.IdCategoria },
+                    MarcaArticulo = marca,
+                    CategoriaArticulo = categoria,
                     Precio = producto.Precio
                 };
 
-                
                 ArticuloNegocio negocio = new ArticuloNegocio();
                 int idNuevo = negocio.agregarArticulo(nuevo);
 
                 if (idNuevo > 0)
-                    return Ok($"Producto agregado correctamente con ID {idNuevo}");
+                    return Request.CreateResponse(HttpStatusCode.OK, $"Producto agregado correctamente con ID {idNuevo}.");
                 else
-                    return BadRequest("No se pudo insertar el producto.");
-
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "No se pudo insertar el producto.");
             }
             catch (Exception ex)
             {
-                return InternalServerError(ex);
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, "Error al agregar el producto. " + ex.Message);
             }
         }
+
 
         // PUT: api/Productos/5
         public HttpResponseMessage Put(int id, [FromBody]ProductoDto producto)
