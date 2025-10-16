@@ -146,37 +146,199 @@ namespace API_CatalogoProductos.Controllers
         }
 
         // DELETE: api/Productos/5
-        public void Delete(int id)
+        public HttpResponseMessage Delete(int id)
         {
+            try
+            {
+                // Validaciones de entrada
+                if (id <= 0)
+                {
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "El ID del producto debe ser mayor a 0");
+                }
+
+                ArticuloNegocio negocio = new ArticuloNegocio();
+                
+                // Validar que el producto existe
+                Articulo producto = negocio.obtenerArticuloPorId(id);
+                if (producto == null)
+                {
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "No se encontró el producto a eliminar");
+                }
+
+                // Eliminar imágenes asociadas primero
+                ImagenNegocio imagenNegocio = new ImagenNegocio();
+                try
+                {
+                    imagenNegocio.eliminarImagenesPorArticulo(id);
+                }
+                catch (Exception ex)
+                {
+                    return Request.CreateResponse(HttpStatusCode.InternalServerError, 
+                        "Error al eliminar las imágenes del producto: " + ex.Message);
+                }
+
+                // Eliminar el producto
+                try
+                {
+                    negocio.eliminarArticulo(id);
+                    
+                    var response = new
+                    {
+                        message = "Producto eliminado correctamente",
+                        productoId = id,
+                        nombreProducto = producto.NombreArticulo,
+                        codigoProducto = producto.CodigoArticulo
+                    };
+
+                    return Request.CreateResponse(HttpStatusCode.OK, response);
+                }
+                catch (Exception ex)
+                {
+                    return Request.CreateResponse(HttpStatusCode.InternalServerError, 
+                        "Error al eliminar el producto: " + ex.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, 
+                    "Error interno del servidor: " + ex.Message);
+            }
         }
 
         // POST: api/Productos/{id}/imagenes
         [HttpPost]
         [Route("api/Productos/{id}/imagenes")]
-        public IHttpActionResult AgregarImagenes(int id, [FromBody] List<string> imagenUrls)
+        public HttpResponseMessage AgregarImagenes(int id, [FromBody] List<string> imagenUrls)
         {
             try
             {
-                // Validaciones
+                // Debug: Log para ver qué se está recibiendo
+                System.Diagnostics.Debug.WriteLine($"ID recibido: {id}");
+                System.Diagnostics.Debug.WriteLine($"imagenUrls es null: {imagenUrls == null}");
+                if (imagenUrls != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Cantidad de URLs: {imagenUrls.Count}");
+                    for (int i = 0; i < imagenUrls.Count; i++)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"URL[{i}]: {imagenUrls[i]?.Length} caracteres");
+                    }
+                }
+
+                // Validaciones de entrada
                 if (imagenUrls == null || imagenUrls.Count == 0)
                 {
-                    return BadRequest("Debe proporcionar al menos una URL de imagen");
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "Debe proporcionar al menos una URL de imagen");
                 }
 
                 if (id <= 0)
                 {
-                    return BadRequest("El ID del producto debe ser mayor a 0");
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, "El ID del producto debe ser mayor a 0");
+                }
+
+                // Limite de URLs por request
+                const int maxUrls = 20;
+                if (imagenUrls.Count > maxUrls)
+                {
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, $"Se permiten hasta {maxUrls} imágenes por petición");
+                }
+
+                // Validación temprana de URLs muy largas
+                for (int i = 0; i < imagenUrls.Count; i++)
+                {
+                    if (imagenUrls[i] != null && imagenUrls[i].Length > 1000)
+                    {
+                        return Request.CreateResponse(HttpStatusCode.BadRequest, $"URL en posición {i} excede la longitud máxima de 1000 caracteres. Longitud actual: {imagenUrls[i].Length}");
+                    }
+                }
+
+                // Normalizar y validar URLs
+                var urlsValidas = new List<string>();
+                var urlsInvalidas = new List<string>();
+                var errores = new List<object>();
+
+                for (int i = 0; i < imagenUrls.Count; i++)
+                {
+                    var url = imagenUrls[i]?.Trim();
+                    
+                    if (string.IsNullOrEmpty(url))
+                    {
+                        errores.Add(new { field = $"imagenUrls[{i}]", error = "URL no puede estar vacía" });
+                        continue;
+                    }
+
+                    if (url.Length > 1000)
+                    {
+                        errores.Add(new { field = $"imagenUrls[{i}]", error = "URL excede la longitud máxima de 1000 caracteres" });
+                        urlsInvalidas.Add(url);
+                        continue;
+                    }
+
+                    if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+                    {
+                        errores.Add(new { field = $"imagenUrls[{i}]", error = "URL debe comenzar con http:// o https://" });
+                        urlsInvalidas.Add(url);
+                        continue;
+                    }
+
+                    if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+                    {
+                        errores.Add(new { field = $"imagenUrls[{i}]", error = "URL tiene formato inválido" });
+                        urlsInvalidas.Add(url);
+                        continue;
+                    }
+
+                    urlsValidas.Add(url);
+                }
+
+                // Si hay URLs invalidas, devuelve error 400 con detalles
+                if (errores.Count > 0)
+                {
+                    var errorResponse = new
+                    {
+                        message = "Datos inválidos",
+                        errors = errores
+                    };
+                    return Request.CreateResponse(HttpStatusCode.BadRequest, errorResponse);
                 }
 
                 // Lógica de negocio
                 ImagenNegocio imagenNegocio = new ImagenNegocio();
-                imagenNegocio.agregarImagenesPorProducto(id, imagenUrls);
+                
+                // Validar que el producto existe
+                ArticuloNegocio articuloNegocio = new ArticuloNegocio();
+                Articulo producto = articuloNegocio.obtenerArticuloPorId(id);
+                if (producto == null)
+                {
+                    return Request.CreateResponse(HttpStatusCode.NotFound, "Producto no encontrado");
+                }
+                
+                // Obtener imágenes existentes para detectar duplicados
+                var imagenesExistentes = imagenNegocio.listarImagenesPorArticulo(id);
+                var urlsExistentes = imagenesExistentes.Select(i => i.ImagenUrl).ToList();
+                
+                // Usar el nuevo método con detección de duplicados
+                var resultado = imagenNegocio.agregarImagenesPorProducto(id, urlsValidas);
 
-                return Ok($"Se agregaron {imagenUrls.Count} imágenes al producto con ID {id}");
+                // Respuesta estructurada
+                var response = new
+                {
+                    productoId = id,
+                    totalSolicitadas = urlsValidas.Count,
+                    agregadas = resultado.Agregadas.Count,
+                    duplicadas = resultado.Duplicadas.Count,
+                    urlsAgregadas = resultado.Agregadas,
+                    urlsDuplicadas = resultado.Duplicadas
+                };
+
+                return Request.CreateResponse(HttpStatusCode.OK, response);
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("No se encontró el producto"))
+            {
+                return Request.CreateResponse(HttpStatusCode.NotFound, "Producto no encontrado");
             }
             catch (Exception ex)
             {
-                return InternalServerError(ex);
+                return Request.CreateResponse(HttpStatusCode.InternalServerError, "Error interno del servidor: " + ex.Message);
             }
         }
     }

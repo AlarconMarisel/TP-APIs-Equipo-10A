@@ -113,12 +113,31 @@ namespace TP_WindForm
                     return;
                 }
 
-                Imagen nuevaImagen = new Imagen();
-                nuevaImagen.IdArticulo = articulo.IdArticulo;
-                nuevaImagen.ImagenUrl = txtUrlImagen.Text.Trim();
+                // Usar el nuevo método con detección de duplicados
+                var urlsParaAgregar = new List<string> { txtUrlImagen.Text.Trim() };
+                var resultado = imagenNegocio.agregarImagenesPorProducto(articulo.IdArticulo, urlsParaAgregar);
+
+                // Mostrar resultado al usuario
+                string mensaje = "";
                 
-                imagenNegocio.agregarImagen(nuevaImagen);
-                MessageBox.Show("Imagen agregada exitosamente.", "Éxito", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (resultado.Agregadas.Count > 0)
+                {
+                    mensaje += $"✅ Se agregaron {resultado.Agregadas.Count} imagen(es) nueva(s).\n";
+                }
+                
+                if (resultado.Duplicadas.Count > 0)
+                {
+                    mensaje += "No se permiten URLs repetidas.\n";
+                }
+
+                if (resultado.Agregadas.Count == 0 && resultado.Duplicadas.Count > 0)
+                {
+                    MessageBox.Show(mensaje, "Imágenes Duplicadas", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                else
+                {
+                    MessageBox.Show(mensaje, "Resultado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
 
                 txtUrlImagen.Clear();
                 articulo.Imagenes = null;

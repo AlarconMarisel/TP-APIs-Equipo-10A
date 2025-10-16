@@ -1,10 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using Dominio;
 
 namespace Negocio
 {
+    public class ResultadoAgregarImagenes
+    {
+        public List<string> Agregadas { get; set; } = new List<string>();
+        public List<string> Duplicadas { get; set; } = new List<string>();
+    }
+
     public class ImagenNegocio
     {
         public List<Imagen> listarImagenesPorArticulo(int idArticulo)
@@ -130,9 +137,10 @@ namespace Negocio
             return url.StartsWith("http://") || url.StartsWith("https://");
         }
 
-        public void agregarImagenesPorProducto(int idProducto, List<string> imagenUrls)
+        public ResultadoAgregarImagenes agregarImagenesPorProducto(int idProducto, List<string> imagenUrls)
         {
             AccesoDatos datos = new AccesoDatos();
+            var resultado = new ResultadoAgregarImagenes();
 
             try
             {
@@ -142,23 +150,102 @@ namespace Negocio
                 
                 if (producto == null)
                 {
-                    throw new Exception($"No se encontró el producto con ID: {idProducto}");
+                    throw new ArgumentException($"No se encontró el producto con ID: {idProducto}");
                 }
 
-                // Validar y agregar cada imagen
+                // Verificar URLs existentes para detectar duplicados
+                var imagenesExistentes = listarImagenesPorArticulo(idProducto);
+                var urlsExistentes = imagenesExistentes.Select(i => i.ImagenUrl).ToList();
+
+                // Separar URLs nuevas de duplicadas
+                var urlsNuevas = new List<string>();
+                var urlsDuplicadas = new List<string>();
+
                 foreach (string url in imagenUrls)
                 {
-                    if (!validarUrlImagen(url))
+                    if (urlsExistentes.Contains(url))
                     {
-                        throw new Exception($"URL de imagen inválida: {url}");
+                        urlsDuplicadas.Add(url);
                     }
+                    else
+                    {
+                        urlsNuevas.Add(url);
+                    }
+                }
 
+                // Agregar solo las URLs nuevas
+                foreach (string url in urlsNuevas)
+                {
                     Imagen nuevaImagen = new Imagen();
                     nuevaImagen.IdArticulo = idProducto;
                     nuevaImagen.ImagenUrl = url;
 
                     agregarImagen(nuevaImagen);
                 }
+
+                resultado.Agregadas = urlsNuevas;
+                resultado.Duplicadas = urlsDuplicadas;
+
+                return resultado;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public dynamic agregarImagenesPorProductoConEstadisticas(int idProducto, List<string> imagenUrls)
+        {
+            int agregadas = 0;
+            int duplicadas = 0;
+            var urlsAgregadas = new List<string>();
+            var urlsDuplicadas = new List<string>();
+
+            try
+            {
+                // Validar que el producto existe
+                ArticuloNegocio articuloNegocio = new ArticuloNegocio();
+                Articulo producto = articuloNegocio.obtenerArticuloPorId(idProducto);
+                
+                if (producto == null)
+                {
+                    throw new ArgumentException($"No se encontró el producto con ID: {idProducto}");
+                }
+
+                // Obtener imágenes existentes para detectar duplicados
+                var imagenesExistentes = listarImagenesPorArticulo(idProducto);
+                var urlsExistentes = imagenesExistentes.Select(i => i.ImagenUrl).ToList();
+
+                // Procesar cada URL
+                foreach (string url in imagenUrls)
+                {
+                    if (urlsExistentes.Contains(url))
+                    {
+                        duplicadas++;
+                        urlsDuplicadas.Add(url);
+                    }
+                    else
+                    {
+
+                        Imagen nuevaImagen = new Imagen();
+                        nuevaImagen.IdArticulo = idProducto;
+                        nuevaImagen.ImagenUrl = url;
+
+                        agregarImagen(nuevaImagen);
+                        
+                        agregadas++;
+                        urlsAgregadas.Add(url);
+                        urlsExistentes.Add(url);
+                    }
+                }
+
+                return new
+                {
+                    Agregadas = agregadas,
+                    Duplicadas = duplicadas,
+                    UrlsAgregadas = urlsAgregadas,
+                    UrlsDuplicadas = urlsDuplicadas
+                };
             }
             catch (Exception ex)
             {
